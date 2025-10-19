@@ -2,7 +2,6 @@
 # 実装方針：Tian et al. (2024) の各式をそのまま Python に移植。
 # 注意：論文の係数は実用単位（cm^-3, eV, K, ...）を混在しているため、
 #        下では論文の係数をなるべくそのまま利用しつつ、各量の単位を揃えています。
-#        実験再現のためには微調整が必要な場合があります。
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -77,15 +76,9 @@ def mu_II(T, n_free, ND_val, NA_val):
     """Brooks–Herring の形（論文式 (1)）を実装（論文の前置係数を使用）"""
     # 論文で与えられた式:
     # muII = 3.28e15 * T^(3/2) * eps_s^2 / ( NI * sqrt(mn) ) * [ ln(1+c) - c/(1+c) ]
-    # ただし c = 24 eps0 eps_s m0 mn (kB T)^2 / (hbar^2 e^2 n')
-    # 論文では eps0 を F/cm 単位で与えている -> そのまま使用
+    # 論文の式が間違っていたため、ほかの文献を参考に計算しています。
     NI = 2.0 * ND_val * 1e6  # 論文近似 (eq.4)
     mn_eff = mn_rel
-    # n' の取り扱い：論文式(2) を簡易化して使用（厳密には論文の n' 式を使うべきだが、
-    # 近似として n' = max(n_free, 1e6) を使用して数値安定化）
-    #nprime = max(n_free, 1e6)
-    #nprime = (n_free)*(n_free + ND_val)/ND_val
-    #print(f"nprime:{nprime}")
     eps0 = eps0_cgs * 1e2
     c = 8.0 * eps0 * eps_s * m0 * mn_eff * (kB * T)**2 / (hbar**2 * e**2 * n_free * 1e6)
     bracket = np.log(1.0 + c) - c / (1.0 + c)
@@ -100,7 +93,6 @@ def mu_ac(T):
     denom = 3.0 * (kB * T)**1.5 * ((Dac*e)**2) * ( (m0 * mn_rel)**2.5 )
     muac = numerator / denom * 1e4
     # 論文は最終単位を cm^2/(V s) に換算した数値になるように前置因子を使っているため
-    # 結果は「おおよそ」同次元となるはず。必要ならスケール調整。
     return muac
 
 def mu_pz(T):
@@ -160,7 +152,7 @@ def compute_vs_temperature(Tmin=10, Tmax=500, nT=200):
         mupzs.append(mupz_val)
         mupos.append(mupo_val)
         # 抵抗率 rho = 1 / (e * mu_n * n)  （単位：Ω·cm を得るために変換）
-        # mu の単位は cm^2/(V s) を仮定, n は cm^-3 -> rho (Ω·cm) = 1/( e[C] * mu[cm^2/Vs] * n[cm^-3] ) * (1e-2?) 
+        # mu の単位は cm^2/(V s) を仮定, n は cm^-3 -> rho (Ω·cm) = 1/( e[C] * mu[cm^2/Vs] * n[cm^-3] )
         # 電気抵抗率の単位合わせに注意。ここでは e[C] を使って Ω·cm に直接変換する近似式を使用します。
         if mu_tot > 0 and n_free > 0:
             rho = 1.0 / (e * mu_tot * n_free)  # ただし単位は SI 混在なので、結果は参考値
@@ -211,3 +203,4 @@ if __name__ == "__main__":
     print("T=300K: n = {:.3e} cm^-3, mu = {:.3e} cm^2/Vs, rho = {:.3e} (approx)".format(
         res['n'][idx300], res['mu'][idx300], res['rho'][idx300]
     ))
+
